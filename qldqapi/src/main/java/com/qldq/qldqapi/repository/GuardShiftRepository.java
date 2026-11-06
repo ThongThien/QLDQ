@@ -58,6 +58,11 @@ public interface GuardShiftRepository extends JpaRepository<GuardShift, Long> {
             @Param("toExclusive") OffsetDateTime toExclusive
     );
 
+    long countByStartAtGreaterThanEqualAndStartAtLessThan(
+            OffsetDateTime fromInclusive,
+            OffsetDateTime toExclusive
+    );
+
     @Query("""
             select count(g) from GuardShift g
             where g.status = :status

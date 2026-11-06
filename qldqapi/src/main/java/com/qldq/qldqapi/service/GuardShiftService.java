@@ -28,6 +28,12 @@ import java.util.stream.Collectors;
 @Transactional
 public class GuardShiftService {
     private static final String MAIN_GATE = "Cổng chính";
+    private static final List<LocalTime> WEEKLY_SHIFT_STARTS = List.of(
+            LocalTime.of(7, 0), LocalTime.of(9, 0), LocalTime.of(11, 0),
+            LocalTime.of(13, 0), LocalTime.of(15, 0), LocalTime.of(17, 0),
+            LocalTime.of(19, 0), LocalTime.of(21, 0), LocalTime.of(23, 0),
+            LocalTime.of(1, 0), LocalTime.of(3, 0), LocalTime.of(5, 0)
+    );
     private final GuardShiftRepository shiftRepository;
     private final UserAccountRepository userRepository;
     private final UserAccessService accessService;
@@ -109,6 +115,56 @@ public class GuardShiftService {
         activityLogService.record(commander, ActivityAction.GUARD_CREATED, ActivityTargetType.GUARD_SHIFT,
                 saved.getId(), "Đã tạo ca gác tại " + saved.getLocation() + ".");
         return toResponse(saved, commander);
+    }
+
+    public GuardWeekResponse generateWeek(Long actorId, GuardWeekRequest request) {
+        UserAccount commander = accessService.requireCommander(actorId);
+        LocalDate weekStart = request.weekStartDate();
+        if (weekStart.getDayOfWeek() != DayOfWeek.MONDAY) {
+            throw new BusinessException("Ngày bắt đầu tuần phải là Thứ Hai");
+        }
+
+        OffsetDateTime from = weekStart.atStartOfDay(BusinessTime.ZONE_ID).toOffsetDateTime();
+        OffsetDateTime toExclusive = weekStart.plusDays(7).atStartOfDay(BusinessTime.ZONE_ID).toOffsetDateTime();
+        if (shiftRepository.countByStartAtGreaterThanEqualAndStartAtLessThan(from, toExclusive) > 0) {
+            throw new ConflictException("Tuần đã chọn đã có lịch gác; không thể tạo trùng tuần");
+        }
+
+        List<UserAccount> soldiers = new ArrayList<>(
+                userRepository.findAllByRoleAndActiveTrueOrderByFullName(UserRole.SOLDIER));
+        if (soldiers.size() < 2) {
+            throw new BusinessException("Cần ít nhất 2 chiến sĩ đang hoạt động để tạo lịch gác tuần");
+        }
+        Collections.shuffle(soldiers);
+
+        List<GuardShift> shifts = new ArrayList<>(84);
+        int assignmentCursor = 0;
+        for (int day = 0; day < 7; day++) {
+            LocalDate shiftDate = weekStart.plusDays(day);
+            for (LocalTime startTime : WEEKLY_SHIFT_STARTS) {
+                ZonedDateTime localStart = shiftDate.atTime(startTime).atZone(BusinessTime.ZONE_ID);
+                GuardShift shift = new GuardShift();
+                shift.setStartAt(localStart.toOffsetDateTime());
+                shift.setEndAt(localStart.plusHours(2).toOffsetDateTime());
+                shift.setLocation(MAIN_GATE);
+                shift.setNote("Thực hiện đúng quy định gác cổng; bàn giao đầy đủ khi hết ca.");
+                shift.setStatus(GuardShiftStatus.PUBLISHED);
+                shift.setCreatedBy(commander);
+
+                UserAccount first = soldiers.get(assignmentCursor % soldiers.size());
+                UserAccount second = soldiers.get((assignmentCursor + 1) % soldiers.size());
+                replaceAssignments(shift, List.of(first.getId(), second.getId()));
+                assignmentCursor = (assignmentCursor + 2) % soldiers.size();
+                shifts.add(shift);
+            }
+        }
+
+        List<GuardShift> saved = shiftRepository.saveAll(shifts);
+        saved.forEach(shift -> notificationService.guardAssigned(shift, assignedUsers(shift)));
+        activityLogService.record(commander, ActivityAction.GUARD_CREATED, ActivityTargetType.GUARD_SHIFT,
+                saved.getFirst().getId(), "Đã tạo lịch gác tuần " + weekStart + " đến " + weekStart.plusDays(6)
+                        + " gồm 84 ca và phân công ngẫu nhiên chiến sĩ.");
+        return new GuardWeekResponse(weekStart, weekStart.plusDays(6), saved.size(), saved.size() * 2);
     }
 
     public GuardShiftResponse update(Long actorId, Long shiftId, GuardShiftRequest request) {

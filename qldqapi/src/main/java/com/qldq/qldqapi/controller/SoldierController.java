@@ -2,9 +2,12 @@ package com.qldq.qldqapi.controller;
 
 import com.qldq.qldqapi.dto.PagedResponse;
 import com.qldq.qldqapi.dto.SoldierDtos.SoldierResponse;
+import com.qldq.qldqapi.dto.SoldierDtos.SoldierCreateRequest;
 import com.qldq.qldqapi.service.SoldierService;
 import com.qldq.qldqapi.security.AuthenticatedUser;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,5 +38,14 @@ public class SoldierController {
             @PathVariable Long soldierId
     ) {
         return soldierService.get(actor.id(), soldierId);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public SoldierResponse create(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @Valid @RequestBody SoldierCreateRequest request
+    ) {
+        return soldierService.create(actor.id(), request);
     }
 }

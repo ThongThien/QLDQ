@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface UserAccountRepository extends JpaRepository<UserAccount, Long> {
     Optional<UserAccount> findByUsername(String username);
@@ -35,4 +36,6 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
     long countByRoleAndActiveTrue(UserRole role);
 
     long countByRole(UserRole role);
+
+    List<UserAccount> findAllByRoleAndActiveTrueOrderByFullName(UserRole role);
 }

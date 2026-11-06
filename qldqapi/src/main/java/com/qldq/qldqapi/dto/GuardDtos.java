@@ -26,6 +26,17 @@ public final class GuardDtos {
     ) {
     }
 
+    public record GuardWeekRequest(@NotNull LocalDate weekStartDate) {
+    }
+
+    public record GuardWeekResponse(
+            LocalDate weekStartDate,
+            LocalDate weekEndDate,
+            int createdShiftCount,
+            int assignmentCount
+    ) {
+    }
+
     public record GuardStatusRequest(@NotNull GuardShiftStatus status) {
     }
 

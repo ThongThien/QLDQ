@@ -53,6 +53,15 @@ public class GuardShiftController {
         return guardShiftService.create(actor.id(), request);
     }
 
+    @PostMapping("/generate-week")
+    @ResponseStatus(HttpStatus.CREATED)
+    public GuardWeekResponse generateWeek(
+            @AuthenticationPrincipal AuthenticatedUser actor,
+            @Valid @RequestBody GuardWeekRequest request
+    ) {
+        return guardShiftService.generateWeek(actor.id(), request);
+    }
+
     @PutMapping("/{shiftId}")
     public GuardShiftResponse update(
             @AuthenticationPrincipal AuthenticatedUser actor,
